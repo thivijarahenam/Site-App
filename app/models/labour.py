@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -60,6 +60,8 @@ class LabourProfile(Base):
     status: Mapped[str] = mapped_column(
         String(20), default=LabourStatus.ACTIVE.value, nullable=False, index=True
     )
+    daily_wage: Mapped[float] = mapped_column(Float, default=3500.0, nullable=False)
+    has_attended_today: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )

@@ -65,6 +65,8 @@ def create_labourer(db: Session, data: LabourCreate) -> LabourDetail:
         joining_date=data.joining_date,
         emergency_contact=data.emergency_contact,
         status=data.status.value,
+        daily_wage=data.daily_wage,
+        has_attended_today=data.has_attended_today,
     )
     profile = create_labour_profile(db, profile)
 
@@ -158,9 +160,26 @@ def update_labourer(db: Session, labour_id: UUID, data: LabourUpdate) -> LabourD
         profile.emergency_contact = data.emergency_contact
     if data.status is not None:
         profile.status = data.status.value
+    if data.daily_wage is not None:
+        profile.daily_wage = data.daily_wage
+    if data.has_attended_today is not None:
+        profile.has_attended_today = data.has_attended_today
 
     db.commit()
     return LabourDetail.model_validate(get_labour_by_id(db, profile.id))
+
+
+def toggle_labourer_attendance(db: Session, labour_id: UUID) -> LabourDetail:
+    profile = get_labour_by_id(db, labour_id)
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Labourer profile not found",
+        )
+    profile.has_attended_today = not profile.has_attended_today
+    db.commit()
+    return LabourDetail.model_validate(get_labour_by_id(db, profile.id))
+
 
 
 def assign_site(db: Session, labour_id: UUID, site_id: UUID | None) -> LabourDetail:
@@ -219,6 +238,14 @@ def update_self_labour_profile(
         profile.profile_photo = data.profile_photo
     if data.emergency_contact is not None:
         profile.emergency_contact = data.emergency_contact
+    if data.job_role is not None:
+        profile.job_role = data.job_role
+    if data.skills is not None:
+        profile.skills = data.skills
+    if data.experience_years is not None:
+        profile.experience_years = data.experience_years
+    if data.daily_wage is not None:
+        profile.daily_wage = data.daily_wage
 
     db.commit()
     return LabourDetail.model_validate(get_labour_by_id(db, profile.id))

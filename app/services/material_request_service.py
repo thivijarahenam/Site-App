@@ -25,6 +25,30 @@ from app.schemas.site import SitePublic
 from app.services.notification_service import send_notification
 
 
+def _to_request_detail(req: MaterialRequest, resp_count: int) -> MaterialRequestDetail:
+    from app.schemas.supplier import SupplierDetail
+
+    return MaterialRequestDetail(
+        id=req.id,
+        site_id=req.site_id,
+        material_name=req.material_name,
+        material_category=req.material_category,
+        required_quantity=req.required_quantity,
+        unit=req.unit,
+        required_date=req.required_date,
+        description=req.description,
+        additional_notes=req.additional_notes,
+        request_date=req.request_date,
+        status=req.status,
+        assigned_supplier_id=req.assigned_supplier_id,
+        assigned_supplier=SupplierDetail.model_validate(req.assigned_supplier) if getattr(req, "assigned_supplier", None) else None,
+        created_at=req.created_at,
+        updated_at=req.updated_at,
+        site=SitePublic.model_validate(req.site) if req.site else None,
+        response_count=resp_count,
+    )
+
+
 def create_request(db: Session, data: MaterialRequestCreate) -> MaterialRequestDetail:
     site = get_site(db, data.site_id)
     if site is None:
@@ -35,6 +59,7 @@ def create_request(db: Session, data: MaterialRequestCreate) -> MaterialRequestD
 
     req = MaterialRequest(
         site_id=data.site_id,
+        assigned_supplier_id=data.assigned_supplier_id,
         material_name=data.material_name,
         material_category=data.material_category,
         required_quantity=data.required_quantity,
@@ -45,7 +70,7 @@ def create_request(db: Session, data: MaterialRequestCreate) -> MaterialRequestD
     )
     req = create_material_request(db, req)
 
-    # Notify all active suppliers about the new material request
+    # Notify active suppliers about the new material request
     active_suppliers = list_suppliers(db, status=SupplierStatus.ACTIVE.value)
     for supplier in active_suppliers:
         send_notification(
@@ -62,23 +87,7 @@ def create_request(db: Session, data: MaterialRequestCreate) -> MaterialRequestD
 
     db.commit()
     db.refresh(req)
-    return MaterialRequestDetail(
-        id=req.id,
-        site_id=req.site_id,
-        material_name=req.material_name,
-        material_category=req.material_category,
-        required_quantity=req.required_quantity,
-        unit=req.unit,
-        required_date=req.required_date,
-        description=req.description,
-        additional_notes=req.additional_notes,
-        request_date=req.request_date,
-        status=req.status,
-        created_at=req.created_at,
-        updated_at=req.updated_at,
-        site=SitePublic.model_validate(req.site),
-        response_count=0,
-    )
+    return _to_request_detail(req, 0)
 
 
 def get_request_by_id(db: Session, request_id: UUID) -> MaterialRequestDetail:
@@ -89,23 +98,7 @@ def get_request_by_id(db: Session, request_id: UUID) -> MaterialRequestDetail:
             detail="Material request not found",
         )
     resp_count = get_request_response_count(db, req.id)
-    return MaterialRequestDetail(
-        id=req.id,
-        site_id=req.site_id,
-        material_name=req.material_name,
-        material_category=req.material_category,
-        required_quantity=req.required_quantity,
-        unit=req.unit,
-        required_date=req.required_date,
-        description=req.description,
-        additional_notes=req.additional_notes,
-        request_date=req.request_date,
-        status=req.status,
-        created_at=req.created_at,
-        updated_at=req.updated_at,
-        site=SitePublic.model_validate(req.site) if req.site else None,
-        response_count=resp_count,
-    )
+    return _to_request_detail(req, resp_count)
 
 
 def update_request(
@@ -134,27 +127,13 @@ def update_request(
         req.additional_notes = data.additional_notes
     if data.status is not None:
         req.status = data.status.value
+    if data.assigned_supplier_id is not None:
+        req.assigned_supplier_id = data.assigned_supplier_id
 
     db.commit()
     db.refresh(req)
     resp_count = get_request_response_count(db, req.id)
-    return MaterialRequestDetail(
-        id=req.id,
-        site_id=req.site_id,
-        material_name=req.material_name,
-        material_category=req.material_category,
-        required_quantity=req.required_quantity,
-        unit=req.unit,
-        required_date=req.required_date,
-        description=req.description,
-        additional_notes=req.additional_notes,
-        request_date=req.request_date,
-        status=req.status,
-        created_at=req.created_at,
-        updated_at=req.updated_at,
-        site=SitePublic.model_validate(req.site) if req.site else None,
-        response_count=resp_count,
-    )
+    return _to_request_detail(req, resp_count)
 
 
 def list_requests(
@@ -176,29 +155,7 @@ def list_requests(
         limit=limit,
         offset=offset,
     )
-    results: list[MaterialRequestDetail] = []
-    for r in requests:
-        resp_count = get_request_response_count(db, r.id)
-        results.append(
-            MaterialRequestDetail(
-                id=r.id,
-                site_id=r.site_id,
-                material_name=r.material_name,
-                material_category=r.material_category,
-                required_quantity=r.required_quantity,
-                unit=r.unit,
-                required_date=r.required_date,
-                description=r.description,
-                additional_notes=r.additional_notes,
-                request_date=r.request_date,
-                status=r.status,
-                created_at=r.created_at,
-                updated_at=r.updated_at,
-                site=SitePublic.model_validate(r.site) if r.site else None,
-                response_count=resp_count,
-            )
-        )
-    return results
+    return [_to_request_detail(r, get_request_response_count(db, r.id)) for r in requests]
 
 
 def remove_request(db: Session, request_id: UUID) -> None:

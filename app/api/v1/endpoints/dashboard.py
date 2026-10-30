@@ -5,11 +5,17 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.models.account import Account, AccountRole
-from app.schemas.dashboard import AdminDashboard, LabourDashboard, SupplierDashboard
+from app.schemas.dashboard import (
+    AdminDashboard,
+    LabourDashboard,
+    SupervisorDashboard,
+    SupplierDashboard,
+)
 from app.security.dependencies import require_roles
 from app.services.dashboard_service import (
     get_admin_dashboard,
     get_labour_dashboard,
+    get_supervisor_dashboard,
     get_supplier_dashboard,
 )
 
@@ -24,6 +30,17 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 def admin_dashboard(db: Session = Depends(get_db)) -> AdminDashboard:
     """Retrieve operational KPIs and stats for Admin Dashboard."""
     return get_admin_dashboard(db)
+
+
+@router.get(
+    "/supervisor",
+    response_model=SupervisorDashboard,
+    dependencies=[Depends(require_roles(AccountRole.ADMIN, AccountRole.SUPERVISOR))],
+)
+def supervisor_dashboard(db: Session = Depends(get_db)) -> SupervisorDashboard:
+    """Retrieve operational KPIs and stats for Supervisor Dashboard."""
+    return get_supervisor_dashboard(db)
+
 
 
 @router.get(

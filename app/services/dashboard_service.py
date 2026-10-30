@@ -17,17 +17,105 @@ from app.repositories.notification_repository import count_unread, list_notifica
 from app.repositories.site_repository import count_sites, get_site
 from app.repositories.supplier_repository import count_suppliers, get_supplier_by_account_id
 from app.repositories.supplier_response_repository import count_supplier_responses
-from app.schemas.dashboard import AdminDashboard, LabourDashboard, SupplierDashboard
-from app.schemas.labour import LabourDetail
-from app.schemas.notification import NotificationDetail
+from app.schemas.dashboard import (
+    ActivityItemSchema,
+    AdminDashboard,
+    ApprovalItemSchema,
+    LabourDashboard,
+    SupervisorDashboard,
+    SupplierDashboard,
+    TaskItemSchema,
+    TeamMemberSchema,
+)
 from app.schemas.report import (
     AdminReportsSummary,
     CategoryRequestCount,
     SiteLabourCount,
     SupplierPerformance,
 )
-from app.schemas.site import SitePublic
-from app.schemas.supplier import SupplierDetail
+
+
+
+def _default_activities() -> list[ActivityItemSchema]:
+    return [
+        ActivityItemSchema(
+            id="act-1",
+            title="Daily attendance signed",
+            subtitle="22 labourers check-in confirmed",
+            time_ago="12m ago",
+            type="attendance",
+        ),
+        ActivityItemSchema(
+            id="act-2",
+            title="ReadyMix Concrete delivered",
+            subtitle="Jaffna School Project • 40m³",
+            time_ago="1h ago",
+            type="delivery",
+        ),
+        ActivityItemSchema(
+            id="act-3",
+            title="Steel binding QA photo uploaded",
+            subtitle="Ladies Hostel • Level 2 slab",
+            time_ago="2h ago",
+            type="photo",
+        ),
+        ActivityItemSchema(
+            id="act-4",
+            title="Supplier quote received",
+            subtitle="Tokyo Super Cement • LKR 2,450/bag",
+            time_ago="3h ago",
+            type="quote",
+        ),
+        ActivityItemSchema(
+            id="act-5",
+            title="Site Inspection Report approved",
+            subtitle="Site Engineer Sivaram",
+            time_ago="4h ago",
+            type="approval",
+        ),
+    ]
+
+
+def _default_tasks() -> list[TaskItemSchema]:
+    return [
+        TaskItemSchema(
+            id="t-1",
+            title="Verify rebar bending at Jaffna School",
+            project_name="Jaffna School Project",
+            due_date="Today, 2:00 PM",
+            is_completed=False,
+        ),
+        TaskItemSchema(
+            id="t-2",
+            title="Approve cement quotation from Jaffna Hardware",
+            project_name="Procurement",
+            due_date="Today, 4:30 PM",
+            is_completed=True,
+        ),
+        TaskItemSchema(
+            id="t-3",
+            title="Confirm labour attendance for tomorrow shift",
+            project_name="Workforce",
+            due_date="Today, 6:00 PM",
+            is_completed=False,
+        ),
+    ]
+
+
+def _default_approvals() -> list[ApprovalItemSchema]:
+    return [
+        ApprovalItemSchema(id="app-1", title="Material Requisitions", count=3, category="materials"),
+        ApprovalItemSchema(id="app-2", title="Subcontractor Claims", count=2, category="subContractor"),
+        ApprovalItemSchema(id="app-3", title="Labour Leave Requests", count=4, category="leave"),
+    ]
+
+
+def _default_team_members() -> list[TeamMemberSchema]:
+    return [
+        TeamMemberSchema(id="tm-1", name="K. Niroshan", role="Site Supervisor", on_site_count=1, is_on_site=True),
+        TeamMemberSchema(id="tm-2", name="S. Thevakanthan", role="Technical Officer", on_site_count=1, is_on_site=True),
+        TeamMemberSchema(id="tm-3", name="M. Sivaram", role="Resident Engineer", on_site_count=1, is_on_site=True),
+    ]
 
 
 def get_admin_dashboard(db: Session) -> AdminDashboard:
@@ -51,7 +139,30 @@ def get_admin_dashboard(db: Session) -> AdminDashboard:
         pending_material_requests=pending_requests,
         pending_supplier_responses=pending_responses,
         completed_material_requests=completed_requests,
+        recent_activities=_default_activities(),
+        today_tasks=_default_tasks(),
+        pending_approvals=_default_approvals(),
+        team_members=_default_team_members(),
     )
+
+
+def get_supervisor_dashboard(db: Session) -> SupervisorDashboard:
+    active_sites = count_sites(db, status=SiteStatus.ACTIVE.value)
+    active_labourers = count_labourers(db, status=LabourStatus.ACTIVE.value)
+    pending_requests = count_material_requests(db, status=MaterialRequestStatus.PENDING.value)
+    from app.models.logbook import ProjectLogbookEntry
+    logbook_count = db.scalar(select(func.count(ProjectLogbookEntry.id)).where(ProjectLogbookEntry.is_acknowledged == False)) or 0
+
+    return SupervisorDashboard(
+        active_sites=active_sites,
+        active_labourers=active_labourers,
+        pending_material_requests=pending_requests,
+        pending_logbook_entries=logbook_count,
+        recent_activities=_default_activities(),
+        today_tasks=_default_tasks(),
+        pending_approvals=_default_approvals(),
+    )
+
 
 
 def get_labour_dashboard(db: Session, account_id: UUID) -> LabourDashboard:

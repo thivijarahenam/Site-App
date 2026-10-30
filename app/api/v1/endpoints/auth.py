@@ -26,6 +26,7 @@ from app.schemas.auth import (
     SupplierSignupRequest,
     TokenRefreshRequest,
     TokenResponse,
+    UserProfileResponse,
     VerifyOTPRequest,
     VerifyOTPResponse,
 )
@@ -86,6 +87,13 @@ def logout(request: LogoutRequest, db: DbSession) -> Response:
 @router.get("/me", response_model=AccountResponse)
 def me(account: CurrentAccount) -> AccountResponse:
     return auth_controller.current_account(account)
+
+
+@router.get("/profile", response_model=UserProfileResponse)
+def get_my_profile(account: CurrentAccount, db: DbSession) -> UserProfileResponse:
+    """Return unified Flutter AppUser profile representation for authenticated user."""
+    return auth_controller.current_profile(db, account)
+
 
 
 @router.post("/users", response_model=AccountResponse, status_code=status.HTTP_201_CREATED)

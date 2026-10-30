@@ -5,13 +5,15 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Date, DateTime, String, Text, Uuid
+from sqlalchemy import Date, DateTime, JSON, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.labour import LabourProfile
+    from app.models.logbook import ProjectLogbookEntry
+    from app.models.marketplace import FoodSupplyOrder
     from app.models.material_request import MaterialRequest
 
 
@@ -39,6 +41,15 @@ class ConstructionSite(Base):
         String(20), default=SiteStatus.ACTIVE.value, nullable=False, index=True
     )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    progress: Mapped[float] = mapped_column(default=0.0, nullable=False)
+    contract_value: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    cost_spent: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    margin: Mapped[float] = mapped_column(default=0.0, nullable=False)
+    labour_count: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    supervisor_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    supervisor_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    stages: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
@@ -55,4 +66,10 @@ class ConstructionSite(Base):
     )
     material_requests: Mapped[list["MaterialRequest"]] = relationship(
         "MaterialRequest", back_populates="site", cascade="all, delete-orphan"
+    )
+    logbook_entries: Mapped[list["ProjectLogbookEntry"]] = relationship(
+        "ProjectLogbookEntry", back_populates="site", cascade="all, delete-orphan"
+    )
+    food_orders: Mapped[list["FoodSupplyOrder"]] = relationship(
+        "FoodSupplyOrder", back_populates="site", cascade="all, delete-orphan"
     )

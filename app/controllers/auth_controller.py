@@ -18,6 +18,7 @@ from app.schemas.auth import (
     SignupResponse,
     SupplierSignupRequest,
     TokenResponse,
+    UserProfileResponse,
     VerifyOTPRequest,
     VerifyOTPResponse,
 )
@@ -41,14 +42,20 @@ def current_account(account: Account) -> AccountResponse:
     return AccountResponse.model_validate(account)
 
 
+def current_profile(db: Session, account: Account) -> UserProfileResponse:
+    return auth_service.get_unified_user_profile(db, account)
+
+
 def signup(db: Session, request: SignupRequest) -> SignupResponse:
     account, _ = auth_service.signup(db, request)
+    profile = auth_service.get_unified_user_profile(db, account)
     return SignupResponse(
         message="Registration successful. A 6-digit verification code has been sent to your email.",
         account_id=account.id,
         email=account.email,
         role=account.role,
         verification_status=account.verification_status,
+        user_profile=profile,
     )
 
 

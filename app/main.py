@@ -30,12 +30,13 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.docs_enabled else None,
     lifespan=lifespan,
 )
+cors_origins = settings.cors_origins if settings.cors_origins else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+    allow_origins=cors_origins,
+    allow_credentials=True if cors_origins != ["*"] else False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 install_exception_handlers(app)
 app.include_router(api_router, prefix="/api/v1")

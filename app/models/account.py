@@ -14,9 +14,11 @@ class AccountRole(StrEnum):
     """Roles supported by the backend."""
 
     ADMIN = "admin"
+    SUPERVISOR = "supervisor"
     LABOUR = "labour"
     EMPLOYEE = "employee"
     SUPPLIER = "supplier"
+    FOOD_SUPPLIER = "foodSupplier"
 
 
 class Account(Base):

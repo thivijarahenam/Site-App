@@ -2,6 +2,8 @@
 
 from app.models.account import Account, AccountActionToken, AccountOTP, AccountRole, RefreshToken
 from app.models.labour import LabourProfile, LabourStatus
+from app.models.logbook import LogbookCategory, LogbookComment, ProjectLogbookEntry
+from app.models.marketplace import EquipmentRental, FoodSupplyOrder
 from app.models.material_request import MaterialRequest, MaterialRequestStatus
 from app.models.notification import Notification
 from app.models.site import ConstructionSite, SiteStatus
@@ -26,4 +28,9 @@ __all__ = [
     "AvailabilityStatus",
     "ResponseStatus",
     "Notification",
+    "ProjectLogbookEntry",
+    "LogbookComment",
+    "LogbookCategory",
+    "EquipmentRental",
+    "FoodSupplyOrder",
 ]

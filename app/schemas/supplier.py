@@ -12,7 +12,7 @@ class SupplierCreate(BaseModel):
     """Schema for Admin registering a new Supplier."""
 
     email: EmailStr
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=4, max_length=128)
     company_name: str = Field(..., min_length=2, max_length=200)
     contact_person: str = Field(..., min_length=2, max_length=200)
     phone_number: str = Field(..., min_length=7, max_length=30)

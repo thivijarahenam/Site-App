@@ -47,6 +47,12 @@ def test_env(
         role=AccountRole.ADMIN.value,
         is_active=True,
     )
+    supervisor_acct = Account(
+        email="supervisor@civilcorp.com",
+        password_hash=hash_password("supervisor-secure-pass-123"),
+        role=AccountRole.SUPERVISOR.value,
+        is_active=True,
+    )
     labour_acct = Account(
         email="labour@civilcorp.com",
         password_hash=hash_password("labour-secure-pass-123"),
@@ -60,18 +66,21 @@ def test_env(
         is_active=True,
     )
 
-    session.add_all([admin_acct, labour_acct, supplier_acct])
+    session.add_all([admin_acct, supervisor_acct, labour_acct, supplier_acct])
     session.commit()
 
     admin_token, _ = create_access_token(admin_acct)
+    supervisor_token, _ = create_access_token(supervisor_acct)
     labour_token, _ = create_access_token(labour_acct)
     supplier_token, _ = create_access_token(supplier_acct)
 
     headers = {
         "admin": {"Authorization": f"Bearer {admin_token}"},
+        "supervisor": {"Authorization": f"Bearer {supervisor_token}"},
         "labour": {"Authorization": f"Bearer {labour_token}"},
         "supplier": {"Authorization": f"Bearer {supplier_token}"},
         "admin_acct_id": str(admin_acct.id),
+        "supervisor_acct_id": str(supervisor_acct.id),
         "labour_acct_id": str(labour_acct.id),
         "supplier_acct_id": str(supplier_acct.id),
     }

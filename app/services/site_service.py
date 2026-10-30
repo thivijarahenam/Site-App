@@ -17,6 +17,43 @@ from app.schemas.labour import LabourDetail
 from app.schemas.site import SiteCreate, SiteDetail, SitePublic, SiteUpdate
 
 
+def _to_site_detail(db: Session, site: ConstructionSite) -> SiteDetail:
+    count = get_site_labourer_count(db, site.id)
+    labour_ids = [str(l.id) for l in getattr(site, "assigned_labourers", [])]
+    return SiteDetail(
+        id=site.id,
+        site_name=site.site_name,
+        project_name=site.project_name,
+        site_address=site.site_address,
+        client_name=site.client_name,
+        start_date=site.start_date,
+        expected_completion_date=site.expected_completion_date,
+        status=site.status,
+        description=site.description,
+        progress=site.progress,
+        contract_value=site.contract_value,
+        cost_spent=site.cost_spent,
+        margin=site.margin,
+        labour_count=site.labour_count or f"{count} Workers",
+        image_url=site.image_url,
+        supervisor_name=site.supervisor_name,
+        supervisor_phone=site.supervisor_phone,
+        stages=site.stages or [
+            "Site Preparation",
+            "Foundation",
+            "Structural Work",
+            "Block Work",
+            "Plastering",
+            "Electrical & Plumbing",
+            "Finishing & Handover",
+        ],
+        assigned_labourer_count=count,
+        assigned_labour_ids=labour_ids,
+        created_at=site.created_at,
+        updated_at=site.updated_at,
+    )
+
+
 def create_construction_site(db: Session, data: SiteCreate) -> SiteDetail:
     site = ConstructionSite(
         site_name=data.site_name,
@@ -27,25 +64,28 @@ def create_construction_site(db: Session, data: SiteCreate) -> SiteDetail:
         expected_completion_date=data.expected_completion_date,
         status=data.status.value,
         description=data.description,
+        progress=data.progress,
+        contract_value=data.contract_value,
+        cost_spent=data.cost_spent,
+        margin=data.margin,
+        labour_count=data.labour_count,
+        image_url=data.image_url,
+        supervisor_name=data.supervisor_name,
+        supervisor_phone=data.supervisor_phone,
+        stages=data.stages or [
+            "Site Preparation",
+            "Foundation",
+            "Structural Work",
+            "Block Work",
+            "Plastering",
+            "Electrical & Plumbing",
+            "Finishing & Handover",
+        ],
     )
     site = create_site(db, site)
     db.commit()
     db.refresh(site)
-    count = get_site_labourer_count(db, site.id)
-    return SiteDetail(
-        id=site.id,
-        site_name=site.site_name,
-        project_name=site.project_name,
-        site_address=site.site_address,
-        client_name=site.client_name,
-        start_date=site.start_date,
-        expected_completion_date=site.expected_completion_date,
-        status=site.status,
-        description=site.description,
-        assigned_labourer_count=count,
-        created_at=site.created_at,
-        updated_at=site.updated_at,
-    )
+    return _to_site_detail(db, site)
 
 
 def get_site_by_id(db: Session, site_id: UUID) -> SiteDetail:
@@ -55,21 +95,7 @@ def get_site_by_id(db: Session, site_id: UUID) -> SiteDetail:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Construction site not found",
         )
-    count = get_site_labourer_count(db, site.id)
-    return SiteDetail(
-        id=site.id,
-        site_name=site.site_name,
-        project_name=site.project_name,
-        site_address=site.site_address,
-        client_name=site.client_name,
-        start_date=site.start_date,
-        expected_completion_date=site.expected_completion_date,
-        status=site.status,
-        description=site.description,
-        assigned_labourer_count=count,
-        created_at=site.created_at,
-        updated_at=site.updated_at,
-    )
+    return _to_site_detail(db, site)
 
 
 def update_site_by_id(db: Session, site_id: UUID, data: SiteUpdate) -> SiteDetail:
@@ -95,24 +121,28 @@ def update_site_by_id(db: Session, site_id: UUID, data: SiteUpdate) -> SiteDetai
         site.status = data.status.value
     if data.description is not None:
         site.description = data.description
+    if data.progress is not None:
+        site.progress = data.progress
+    if data.contract_value is not None:
+        site.contract_value = data.contract_value
+    if data.cost_spent is not None:
+        site.cost_spent = data.cost_spent
+    if data.margin is not None:
+        site.margin = data.margin
+    if data.labour_count is not None:
+        site.labour_count = data.labour_count
+    if data.image_url is not None:
+        site.image_url = data.image_url
+    if data.supervisor_name is not None:
+        site.supervisor_name = data.supervisor_name
+    if data.supervisor_phone is not None:
+        site.supervisor_phone = data.supervisor_phone
+    if data.stages is not None:
+        site.stages = data.stages
 
     db.commit()
     db.refresh(site)
-    count = get_site_labourer_count(db, site.id)
-    return SiteDetail(
-        id=site.id,
-        site_name=site.site_name,
-        project_name=site.project_name,
-        site_address=site.site_address,
-        client_name=site.client_name,
-        start_date=site.start_date,
-        expected_completion_date=site.expected_completion_date,
-        status=site.status,
-        description=site.description,
-        assigned_labourer_count=count,
-        created_at=site.created_at,
-        updated_at=site.updated_at,
-    )
+    return _to_site_detail(db, site)
 
 
 def list_construction_sites(
@@ -124,26 +154,7 @@ def list_construction_sites(
     offset: int = 0,
 ) -> list[SiteDetail]:
     sites = list_sites(db, status=status, search=search, limit=limit, offset=offset)
-    results: list[SiteDetail] = []
-    for s in sites:
-        count = get_site_labourer_count(db, s.id)
-        results.append(
-            SiteDetail(
-                id=s.id,
-                site_name=s.site_name,
-                project_name=s.project_name,
-                site_address=s.site_address,
-                client_name=s.client_name,
-                start_date=s.start_date,
-                expected_completion_date=s.expected_completion_date,
-                status=s.status,
-                description=s.description,
-                assigned_labourer_count=count,
-                created_at=s.created_at,
-                updated_at=s.updated_at,
-            )
-        )
-    return results
+    return [_to_site_detail(db, s) for s in sites]
 
 
 def get_assigned_site_for_labourer(db: Session, account_id: UUID) -> SitePublic | None:

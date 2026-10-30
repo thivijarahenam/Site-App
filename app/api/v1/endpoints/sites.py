@@ -26,17 +26,17 @@ router = APIRouter(prefix="/sites", tags=["sites"])
     "",
     response_model=SiteDetail,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_roles(AccountRole.ADMIN))],
+    dependencies=[Depends(require_roles(AccountRole.ADMIN, AccountRole.SUPERVISOR))],
 )
 def create_site(data: SiteCreate, db: Session = Depends(get_db)) -> SiteDetail:
-    """Create a new construction site (Admin only)."""
+    """Create a new construction site (Admin / Supervisor)."""
     return create_construction_site(db, data)
 
 
 @router.get(
     "",
     response_model=list[SiteDetail],
-    dependencies=[Depends(require_roles(AccountRole.ADMIN))],
+    dependencies=[Depends(require_roles(AccountRole.ADMIN, AccountRole.SUPERVISOR))],
 )
 def list_sites(
     status: str | None = Query(None, description="Filter by status (Active, Completed, On Hold)"),
@@ -45,7 +45,7 @@ def list_sites(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> list[SiteDetail]:
-    """List all construction sites with optional filters (Admin only)."""
+    """List all construction sites with optional filters (Admin / Supervisor)."""
     return list_construction_sites(db, status=status, search=search, limit=limit, offset=offset)
 
 
@@ -64,28 +64,28 @@ def get_my_assigned_site(
 @router.get(
     "/{site_id}",
     response_model=SiteDetail,
-    dependencies=[Depends(require_roles(AccountRole.ADMIN))],
+    dependencies=[Depends(require_roles(AccountRole.ADMIN, AccountRole.SUPERVISOR))],
 )
 def get_site(site_id: UUID, db: Session = Depends(get_db)) -> SiteDetail:
-    """Get site details by ID (Admin only)."""
+    """Get site details by ID (Admin / Supervisor)."""
     return get_site_by_id(db, site_id)
 
 
 @router.patch(
     "/{site_id}",
     response_model=SiteDetail,
-    dependencies=[Depends(require_roles(AccountRole.ADMIN))],
+    dependencies=[Depends(require_roles(AccountRole.ADMIN, AccountRole.SUPERVISOR))],
 )
 def update_site(site_id: UUID, data: SiteUpdate, db: Session = Depends(get_db)) -> SiteDetail:
-    """Update site information or status (Admin only)."""
+    """Update site information or status (Admin / Supervisor)."""
     return update_site_by_id(db, site_id, data)
 
 
 @router.get(
     "/{site_id}/labourers",
     response_model=list[LabourDetail],
-    dependencies=[Depends(require_roles(AccountRole.ADMIN))],
+    dependencies=[Depends(require_roles(AccountRole.ADMIN, AccountRole.SUPERVISOR))],
 )
 def get_site_labourers(site_id: UUID, db: Session = Depends(get_db)) -> list[LabourDetail]:
-    """View all labourers working at a specific site (Admin only)."""
+    """View all labourers working at a specific site (Admin / Supervisor)."""
     return get_labourers_at_site(db, site_id)

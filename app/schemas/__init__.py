@@ -17,10 +17,20 @@ from app.schemas.auth import (
     SupplierSignupRequest,
     TokenRefreshRequest,
     TokenResponse,
+    UserProfileResponse,
     VerifyOTPRequest,
     VerifyOTPResponse,
 )
-from app.schemas.dashboard import AdminDashboard, LabourDashboard, SupplierDashboard
+from app.schemas.dashboard import (
+    ActivityItemSchema,
+    AdminDashboard,
+    ApprovalItemSchema,
+    LabourDashboard,
+    SupervisorDashboard,
+    SupplierDashboard,
+    TaskItemSchema,
+    TeamMemberSchema,
+)
 from app.schemas.health import HealthResponse
 from app.schemas.labour import (
     LabourAssignSite,
@@ -28,6 +38,21 @@ from app.schemas.labour import (
     LabourDetail,
     LabourSelfUpdate,
     LabourUpdate,
+)
+from app.schemas.logbook import (
+    LogbookAttachmentSchema,
+    LogbookCommentCreate,
+    LogbookCommentResponse,
+    LogbookEntryAcknowledge,
+    LogbookEntryCreate,
+    LogbookEntryResponse,
+)
+from app.schemas.marketplace import (
+    EquipmentRentalCreate,
+    EquipmentRentalResponse,
+    FoodSupplyOrderCreate,
+    FoodSupplyOrderResponse,
+    FoodSupplyOrderUpdate,
 )
 from app.schemas.material_request import (
     MaterialRequestCreate,

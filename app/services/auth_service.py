@@ -21,6 +21,7 @@ from app.schemas.auth import (
     SignupRequest,
     SupplierSignupRequest,
     TokenResponse,
+    UserProfileResponse,
 )
 from app.security.password import hash_password, verify_dummy_password, verify_password
 from app.security.tokens import (
@@ -56,9 +57,9 @@ def _token_pair(db: Session, account: Account, family_id: UUID | None = None) ->
 
 
 def login(db: Session, request: LoginRequest) -> TokenResponse:
-    """Authenticate by email and issue access and refresh tokens."""
+    """Authenticate by email or phone number and issue access and refresh tokens."""
     now = datetime.now(UTC)
-    account = accounts.get_account_by_email(db, str(request.email), for_update=True)
+    account = accounts.get_account_by_identifier(db, str(request.email), for_update=True)
     if account is None:
         verify_dummy_password(request.password)
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -238,41 +239,186 @@ def signup_supplier(db: Session, request: SupplierSignupRequest) -> tuple[Accoun
     return account, otp_code
 
 
+def get_unified_user_profile(db: Session, account: Account) -> UserProfileResponse:
+    """Return unified AppUser representation matching frontend data model."""
+    user_name = account.email.split("@")[0].replace(".", " ").title()
+    phone = ""
+    address = None
+    job_role = None
+    skills: list[str] = []
+    experience = None
+    daily_wage: float | None = None
+    linked_id = None
+    avatar_url = None
+    company_name = "Ahenam Technologies"
+    materials_supplied: list[str] = []
+    is_profile_incomplete = False
+
+    if account.role in {
+        AccountRole.LABOUR.value,
+        AccountRole.EMPLOYEE.value,
+        AccountRole.SUPERVISOR.value,
+        AccountRole.ADMIN.value,
+    }:
+        labour = db.scalar(select(LabourProfile).where(LabourProfile.account_id == account.id))
+        if labour is not None:
+            user_name = labour.full_name
+            phone = labour.phone_number
+            address = labour.address
+            job_role = labour.job_role
+            if labour.skills:
+                skills = [s.strip() for s in labour.skills.split(",") if s.strip()]
+            experience = f"{labour.experience_years} years"
+            daily_wage = labour.daily_wage
+            linked_id = str(labour.id)
+            avatar_url = labour.profile_photo
+            if (not labour.skills or labour.skills == "General Site Work") and account.role != AccountRole.ADMIN.value:
+                is_profile_incomplete = True
+        else:
+            if account.role != AccountRole.ADMIN.value:
+                is_profile_incomplete = True
+
+    elif account.role in {AccountRole.SUPPLIER.value, AccountRole.FOOD_SUPPLIER.value}:
+        supplier = db.scalar(select(SupplierProfile).where(SupplierProfile.account_id == account.id))
+        if supplier is not None:
+            user_name = supplier.contact_person
+            phone = supplier.phone_number
+            address = supplier.address
+            company_name = supplier.company_name
+            if supplier.materials_supplied:
+                materials_supplied = [m.strip() for m in supplier.materials_supplied.split(",") if m.strip()]
+            linked_id = str(supplier.id)
+            if not supplier.materials_supplied:
+                is_profile_incomplete = True
+        else:
+            is_profile_incomplete = True
+
+    return UserProfileResponse(
+        id=f"u-{account.id}",
+        name=user_name,
+        email=account.email,
+        phone=phone,
+        role=account.role,
+        linked_id=linked_id,
+        avatar_url=avatar_url,
+        company_name=company_name,
+        is_profile_incomplete=is_profile_incomplete,
+        address=address,
+        experience=experience,
+        skills=skills,
+        daily_wage=daily_wage,
+        materials_supplied=materials_supplied,
+    )
+
+
 def signup(db: Session, request: SignupRequest) -> tuple[Account, str]:
-    """Unified self-registration handler dispatching by role."""
-    if request.role in {"employee", "labour"}:
-        employee_req = EmployeeSignupRequest(
-            email=request.email,
-            password=request.password,
-            first_name=request.first_name,
-            last_name=request.last_name,
-            phone_number=request.phone_number,
-            address=request.address,
-            job_role=request.job_role or "Employee / Leader",
-            nic_number=request.nic_number,
-            skills=request.skills,
-            experience_years=request.experience_years or 0,
-        )
-        return signup_employee(db, employee_req)
-    elif request.role == "supplier":
-        supplier_req = SupplierSignupRequest(
-            email=request.email,
-            password=request.password,
-            first_name=request.first_name,
-            last_name=request.last_name,
-            phone_number=request.phone_number,
-            address=request.address,
-            company_name=request.company_name,
-            company_registration_details=request.company_registration_details,
-            materials_supplied=request.materials_supplied,
-            bank_payment_info=request.bank_payment_info,
-        )
-        return signup_supplier(db, supplier_req)
-    else:
+    """Unified self-registration handler dispatching all frontend roles."""
+    norm_email = str(request.email).strip().lower()
+    existing = accounts.get_account_by_email(db, norm_email)
+    if existing is not None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported self-registration role: {request.role}. Supported: employee, supplier.",
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists",
         )
+
+    # Resolve full name
+    full_name = request.full_name or f"{request.first_name or ''} {request.last_name or ''}".strip()
+    if not full_name:
+        full_name = norm_email.split("@")[0].title()
+
+    # Normalize skills and materials
+    skills_str: str | None = None
+    if isinstance(request.skills, list):
+        skills_str = ", ".join(request.skills)
+    elif isinstance(request.skills, str):
+        skills_str = request.skills
+
+    materials_str: str | None = None
+    if isinstance(request.materials_supplied, list):
+        materials_str = ", ".join(request.materials_supplied)
+    elif isinstance(request.materials_supplied, str):
+        materials_str = request.materials_supplied
+
+    role_val = request.role
+    if role_val == "labour" or role_val == "employee":
+        target_role = AccountRole.LABOUR.value
+    elif role_val == "supervisor":
+        target_role = AccountRole.SUPERVISOR.value
+    elif role_val == "supplier":
+        target_role = AccountRole.SUPPLIER.value
+    elif role_val == "foodSupplier":
+        target_role = AccountRole.FOOD_SUPPLIER.value
+    elif role_val == "admin":
+        target_role = AccountRole.ADMIN.value
+    else:
+        target_role = role_val
+
+    account = Account(
+        email=norm_email,
+        password_hash=hash_password(request.password),
+        role=target_role,
+        is_active=False,
+        is_verified=False,
+        verification_status="PENDING",
+    )
+    accounts.add_account(db, account)
+
+    # Create associated profile
+    if target_role in {AccountRole.LABOUR.value, AccountRole.EMPLOYEE.value, AccountRole.SUPERVISOR.value}:
+        exp_years = request.experience_years or 0
+        if not exp_years and request.experience:
+            digits = "".join(c for c in request.experience if c.isdigit())
+            exp_years = int(digits) if digits else 0
+
+        profile = LabourProfile(
+            account_id=account.id,
+            first_name=request.first_name or full_name.split()[0],
+            last_name=request.last_name or (full_name.split()[-1] if len(full_name.split()) > 1 else ""),
+            full_name=full_name,
+            phone_number=request.phone_number,
+            address=request.address,
+            job_role=request.job_role or ("Site Supervisor" if target_role == AccountRole.SUPERVISOR.value else "General Worker"),
+            nic_number=request.nic_number or f"NIC-{account.id.hex[:8].upper()}",
+            skills=skills_str or "General Construction",
+            experience_years=exp_years,
+            daily_wage=request.daily_wage or 3500.0,
+            has_attended_today=True,
+            emergency_contact=request.emergency_contact or request.phone_number,
+            status="Active",
+        )
+        db.add(profile)
+
+    elif target_role in {AccountRole.SUPPLIER.value, AccountRole.FOOD_SUPPLIER.value}:
+        company_name = request.company_name or f"{full_name} Supplies"
+        profile_supp = SupplierProfile(
+            account_id=account.id,
+            first_name=request.first_name or full_name.split()[0],
+            last_name=request.last_name or (full_name.split()[-1] if len(full_name.split()) > 1 else ""),
+            company_name=company_name,
+            contact_person=full_name,
+            phone_number=request.phone_number,
+            email=norm_email,
+            address=request.address,
+            company_registration_details=request.company_registration_details or "Registered Supplier",
+            materials_supplied=materials_str or ("Catering and Meals" if target_role == AccountRole.FOOD_SUPPLIER.value else "Building Materials"),
+            bank_payment_info=request.bank_payment_info or "Commercial Bank - Verified",
+            company_status="Active",
+        )
+        db.add(profile_supp)
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A conflict occurred during registration profile creation",
+        ) from exc
+
+    db.refresh(account)
+    otp_code = otp_service.create_and_send_registration_otp(db, account)
+    return account, otp_code
+
 
 
 def create_account(db: Session, request: AccountCreateRequest) -> tuple[Account, str]:

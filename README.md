@@ -1,72 +1,156 @@
-# Civil Construction Site Management System Backend
+# Civil Construction Site Management System - Backend API
 
-A robust, enterprise-grade FastAPI backend for the Civil Construction Site Management System. Provides centralized operations management for construction sites, worker/labour allocations, suppliers, procurement requisitions, and quotation response workflows with strict Role-Based Access Control (Admin, Labour, Supplier).
+Enterprise-grade FastAPI backend for the **Civil Construction Site Management System**.  
+Provides centralized operations management for construction sites, worker/labour allocations, suppliers, procurement requisitions, quotation workflows, project logbooks, and marketplace orders with Role-Based Access Control (**Admin**, **Supervisor**, **Labour**, **Supplier**).
 
-Complete endpoint references are documented in [CIVIL_CONSTRUCTION_ENDPOINTS.md](CIVIL_CONSTRUCTION_ENDPOINTS.md) and [AUTH_ENDPOINTS.md](AUTH_ENDPOINTS.md).
+Interactive API documentation (Swagger) is available at: **`http://127.0.0.1:8000/docs`**
 
-## Requirements and setup
+---
 
-Use Python 3.11 or newer and PostgreSQL for database-backed features. Install CPython on the machine and confirm `py -0p` lists it before using the Windows Python launcher. The liveness endpoint works without a database server. In PowerShell:
+## 1. Prerequisites
 
+Before setting up the backend, ensure you have:
+- **Python 3.11** or **Python 3.12** installed (`python --version` or `py -0p`)
+- **PostgreSQL** running locally on port `5432` (or access to a remote PostgreSQL instance)
+- **Git**
+
+---
+
+## 2. Quick Setup Guide (Step-by-Step)
+
+Follow these steps in your terminal to set up and run the backend from scratch:
+
+### Step 1: Open Terminal & Navigate to Project
+```powershell
+cd E:\Civil-app
+```
+
+### Step 2: Create & Activate Virtual Environment
+
+**On Windows (PowerShell):**
 ```powershell
 py -3.12 -m venv .venv
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
+```
+
+**On macOS / Linux (Bash/Zsh):**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+```powershell
 python -m pip install --upgrade pip
 pip install -e ".[dev]"
+```
+
+### Step 4: Configure Environment Variables
+Copy the example environment configuration:
+
+**On Windows (PowerShell):**
+```powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Edit `.env` for your environment. Generate a JWT key with `python -c "import secrets; print(secrets.token_urlsafe(48))"` and set `JWT_SECRET_KEY` to that unique value. Set `DATABASE_URL` to a private PostgreSQL service and `CORS_ORIGINS` to the exact trusted web origins if a browser-based client is used. Native Flutter mobile apps do not use browser CORS; do not add wildcard origins with credentials. The sample database URL is a local placeholder, not a credential.
-
-## Run locally
-
-```powershell
-uvicorn app.main:app --reload
+**On macOS / Linux:**
+```bash
+cp -n .env.example .env
 ```
 
-The API is served at `http://127.0.0.1:8000`; development OpenAPI docs are at `/docs` and `/redoc`. `GET /api/v1/health` returns `200` with `{"status":"ok"}` and does not check database readiness. API errors use `{"error":{"code":"...","message":"..."}}`; validation errors also include a `details` array. Authentication routes are documented in [AUTH_ENDPOINTS.md](AUTH_ENDPOINTS.md). The initial admin is created interactively with `python -m app.security.bootstrap_admin` after PostgreSQL is configured and migrations are applied. To reset an existing admin password, run `python -m app.security.reset_admin_password`; the command prompts without echoing the password and invalidates existing sessions. No public signup or default credentials are provided.
+Open `.env` and verify your PostgreSQL connection in `DATABASE_URL`:
+```ini
+DATABASE_URL=postgresql+psycopg://app:admin@localhost:5432/auth_1
+JWT_SECRET_KEY=c86rptFxZbuQ5KTN1X0n9ZmQ_kTMukHEzg_kKaikhybMa_2iNzFt8zPJvxtYasYR
+CORS_ORIGINS=["*"]
+DOCS_ENABLED=true
+```
+*(Ensure the database `auth_1` exists in PostgreSQL or create it: `CREATE DATABASE auth_1;`)*
 
-## Tests and linting
+### Step 5: Apply Database Migrations
+Run Alembic migrations to create all database tables:
+```powershell
+alembic upgrade head
+```
+
+### Step 6: Seed Demo Accounts & Data
+Populate the database with pre-configured demo users and mock data matching the Flutter frontend demo chips:
+```powershell
+python -m app.database.seed
+```
+
+### Step 7: Start the FastAPI Backend Server
+```powershell
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+The API will now be live at:
+- **Base URL**: `http://127.0.0.1:8000/api/v1`
+- **Health Check**: `http://127.0.0.1:8000/api/v1/health`
+- **Swagger Documentation**: `http://127.0.0.1:8000/docs`
+- **ReDoc Documentation**: `http://127.0.0.1:8000/redoc`
+
+---
+
+## 3. Pre-Seeded Test Credentials
+
+Use these credentials to sign in directly from the Flutter frontend or Swagger UI:
+
+| Role | Email / Phone | Password | Features / Access |
+|---|---|---|---|
+| **Admin** | `admin@siteapp.lk` | `admin123` | Full system access, all dashboards, reports, and management |
+| **Site Supervisor** | `supervisor@siteapp.lk` | `super123` | Project logbook, attendance toggle, requisitions, site tracking |
+| **Labourer / Worker** | `labour@siteapp.lk`<br>*(or `0771234567`)* | `labour123`<br>*(or `123456`)* | Assigned site card, attendance status, profile & skills update |
+| **Supplier / Vendor** | `supplier@siteapp.lk`<br>*(or `0773344556`)* | `supplier123`<br>*(or `123456`)* | Open requisitions, quote submission, delivery history |
+| **Food Vendor** | `food@labourpro.lk` | `food123` | Site meal orders and food supply management |
+
+*(Legacy accounts `jana@labourpro.lk`, `perera@supplies.lk`, etc. with password `123456` are also seeded).*
+
+---
+
+## 4. Automated Testing & Verification
+
+Run the full pytest integration test suite to verify that all endpoints and security policies pass:
 
 ```powershell
-pytest
+pytest -v
+```
+
+To run code formatting and linting:
+```powershell
 ruff check .
 ruff format --check .
 ```
 
-## PostgreSQL and migrations
+---
 
-Set `DATABASE_URL` before running migrations. For local development, create the database and user in PostgreSQL, keeping PostgreSQL bound to a private interface. Then use:
+## 5. Flutter Frontend Integration
 
+When running the Flutter app:
+- **Web / Chrome / Desktop**: Connects to `http://127.0.0.1:8000/api/v1`
+- **Android Emulator**: Connects to `http://10.0.2.2:8000/api/v1`
+- **Physical Device**: Connects to `http://<your-lan-ip>:8000/api/v1`
+
+### Running the Frontend
 ```powershell
-alembic upgrade head
-alembic revision --autogenerate -m "describe schema change"
-alembic downgrade -1
+cd Civil-frontend\Site-App
+flutter pub get
+flutter run -d chrome
 ```
 
-The initial migration creates account and refresh-token tables; application-specific business entities remain unspecified. Review every autogenerated migration before applying it. `app.database.session.get_db` provides a request-scoped SQLAlchemy session for database routes. After migrating, create the first admin interactively with `python -m app.security.bootstrap_admin`.
+---
 
-## Flutter integration
+## 6. Available Backend Modules & Endpoints
 
-Use base URL `https://<your-api-host>/api/v1` (local development: `http://10.0.2.2:8000/api/v1` from the Android emulator; use the host LAN address on a physical device). Call `GET /health`; it takes no body or auth header and returns:
-
-```json
-{"status":"ok"}
-```
-
-It returns HTTP `200` when the API process is alive. Use OpenAPI at `/openapi.json` to generate or inspect API contracts. Production should use HTTPS. No business endpoints exist yet, pending client requirements.
-
-## Security and VPS deployment
-
-- Keep `.env` and all secrets out of source control; use a secret manager or protected environment file on the VPS. Rotate any exposed credentials.
-- Restrict PostgreSQL to the private host/network and use a dedicated least-privilege database role with TLS where appropriate.
-- Run Uvicorn behind a TLS-terminating reverse proxy (such as Nginx) bound to localhost/private interfaces. Do not publish port 8000 directly. Configure trusted proxy IPs before relying on forwarded headers.
-- Put the domain behind Cloudflare if desired, enable WAF rules, and restrict origin ingress to the proxy/Cloudflare addresses as operationally appropriate.
-- Set `CORS_ORIGINS` to exact browser frontend origins. The default is empty. CORS does not authenticate native mobile clients.
-- Login applies a database-backed temporary lock after repeated password failures. Configure shared IP-based rate limits at Cloudflare/reverse proxy before production to protect against distributed attempts and attempts against nonexistent accounts.
-- Access JWTs expire after 15 minutes by default. Refresh tokens are random opaque values, persisted only as SHA-256 hashes, rotated on use, and grouped so reuse revokes the token family. Set a unique `JWT_SECRET_KEY` in the secret manager; do not reuse the example or commit `.env`.
-- Keep `/docs`, `/redoc`, and `/openapi.json` available in development. In production set `DOCS_ENABLED=false`, or protect docs at the reverse proxy if operational access is required.
-- Authentication uses Argon2id password hashes, JWT access tokens, rotating refresh tokens, and backend role checks. Define and implement invitation delivery, password recovery, MFA for admins, account deactivation, and audit retention before production. Never treat Flutter UI role checks as authorization.
-- Configure firewalling, automatic OS/security updates, backups and restore drills, monitoring, log retention/redaction, and health-based process supervision before launch.
-
-Payment design notes are in [`app/payments/README.md`](app/payments/README.md). No provider integration is included, and PCI DSS compliance is not claimed.
+| Module | Endpoints | Description |
+|---|---|---|
+| **Authentication** | `POST /api/v1/auth/login`<br>`POST /api/v1/auth/unified-signup`<br>`GET /api/v1/auth/me` | JWT login (email or phone), self-registration, user profile |
+| **Sites** | `GET /api/v1/sites`<br>`POST /api/v1/sites`<br>`PATCH /api/v1/sites/{id}` | Construction site lifecycle, stages, progress, and budgets |
+| **Labour** | `GET /api/v1/labour`<br>`POST /api/v1/labour`<br>`PATCH /api/v1/labour/{id}` | Labour profile management, site allocation, attendance toggle |
+| **Suppliers** | `GET /api/v1/suppliers`<br>`POST /api/v1/suppliers`<br>`PATCH /api/v1/suppliers/{id}` | Supplier company directory, supplied categories, bank details |
+| **Material Requests** | `GET /api/v1/material-requests`<br>`POST /api/v1/material-requests` | Requisitions, preferred supplier tagging, urgency tracking |
+| **Quotations** | `POST /api/v1/material-requests/{id}/responses` | Supplier bids, pricing, delivery lead times, approval flow |
+| **Project Logbook** | `GET /api/v1/logbook`<br>`POST /api/v1/logbook`<br>`POST /api/v1/logbook/{id}/comments` | Daily site logs, photos, comments, supervisor acknowledgement |
+| **Marketplace** | `GET /api/v1/marketplace/rentals`<br>`GET /api/v1/marketplace/food-orders` | Equipment rental catalog, site meal and catering orders |
+| **Dashboards & Reports** | `GET /api/v1/dashboard/*`<br>`GET /api/v1/reports/summary` | Role-specific dashboard statistics and executive summary reports |
+| **Notifications** | `GET /api/v1/notifications`<br>`POST /api/v1/notifications/{id}/read` | In-app alerts, unread counts, and mark-as-read actions |

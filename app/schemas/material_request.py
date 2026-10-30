@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.material_request import MaterialRequestStatus
 from app.schemas.site import SitePublic
+from app.schemas.supplier import SupplierDetail
 
 
 class MaterialRequestCreate(BaseModel):
@@ -21,6 +22,7 @@ class MaterialRequestCreate(BaseModel):
     required_date: date
     description: str | None = None
     additional_notes: str | None = None
+    assigned_supplier_id: UUID | None = None
 
 
 class MaterialRequestUpdate(BaseModel):
@@ -34,6 +36,7 @@ class MaterialRequestUpdate(BaseModel):
     description: str | None = None
     additional_notes: str | None = None
     status: MaterialRequestStatus | None = None
+    assigned_supplier_id: UUID | None = None
 
 
 class MaterialRequestDetail(BaseModel):
@@ -50,9 +53,11 @@ class MaterialRequestDetail(BaseModel):
     additional_notes: str | None = None
     request_date: date
     status: str
+    assigned_supplier_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
     site: SitePublic | None = None
+    assigned_supplier: SupplierDetail | None = None
     response_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)

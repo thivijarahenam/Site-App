@@ -13,6 +13,7 @@ from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.site import ConstructionSite
+    from app.models.supplier import SupplierProfile
     from app.models.supplier_response import SupplierResponse
 
 
@@ -36,6 +37,12 @@ class MaterialRequest(Base):
         Uuid(as_uuid=True),
         ForeignKey("construction_sites.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    assigned_supplier_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("supplier_profiles.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
 
@@ -64,6 +71,7 @@ class MaterialRequest(Base):
     site: Mapped["ConstructionSite"] = relationship(
         "ConstructionSite", back_populates="material_requests"
     )
+    assigned_supplier: Mapped["SupplierProfile | None"] = relationship("SupplierProfile")
     supplier_responses: Mapped[list["SupplierResponse"]] = relationship(
         "SupplierResponse", back_populates="request", cascade="all, delete-orphan"
     )
